@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ubuntu:22.04 — browser container with persistent /tmp</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/xterm@4.17.0/css/xterm.css"
+      crossorigin="anonymous"
+    />
+    <style>
+      :root {
+        --bg: #11100d;
+        --panel: #1a1916;
+        --line: #2c2a25;
+        --ink: #e8e4da;
+        --muted: #8a877d;
+        --accent: #e0a33e; /* scratch / ephemeral */
+        --ok: #6fae6f;
+        --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; background: var(--bg); color: var(--ink); }
+      body { display: flex; flex-direction: column; font-family: var(--mono); }
+      header {
+        display: flex; align-items: center; gap: 16px;
+        padding: 10px 14px; background: var(--panel);
+        border-bottom: 1px solid var(--line); flex-wrap: wrap;
+      }
+      .title { font-size: 13px; color: var(--muted); letter-spacing: 0.02em; }
+      .title b { color: var(--ink); font-weight: 500; }
+      .bucket { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+      .bucket .label { color: var(--muted); }
+      .bucket .id {
+        color: var(--accent); border: 1px solid var(--line);
+        padding: 2px 8px; border-radius: 6px; background: #00000022;
+        user-select: all;
+      }
+      .spacer { flex: 1; }
+      .status { font-size: 12px; color: var(--muted); min-width: 130px; text-align: right; }
+      .status.saved { color: var(--ok); }
+      button, select {
+        font-family: var(--mono); font-size: 12px; color: var(--ink);
+        background: #00000022; border: 1px solid var(--line);
+        padding: 5px 10px; border-radius: 6px; cursor: pointer;
+      }
+      button:hover, select:hover { border-color: var(--accent); }
+      button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+      #terminal { flex: 1; padding: 8px 10px; min-height: 0; }
+      .hint { font-size: 11px; color: var(--muted); }
+      .hint kbd {
+        font-family: var(--mono); background: #00000033;
+        border: 1px solid var(--line); border-radius: 4px; padding: 0 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <span class="title">ubuntu:22.04 · <b>/tmp</b> &rarr; bucket</span>
+      <span class="bucket">
+        <span class="label">/tmp/</span><span class="id" id="uuid">…</span>
+      </span>
+      <span class="hint">type <kbd>exit</kbd> to save /tmp</span>
+      <span class="spacer"></span>
+      <label class="hint" for="resume">resume:</label>
+      <select id="resume"><option value="">— buckets —</option></select>
+      <button id="new">New session</button>
+      <span class="status" id="status">booting…</span>
+    </header>
+    <div id="terminal"></div>
+
+    <!-- xterm + xterm-pty as classic globals -->
+    <script src="https://cdn.jsdelivr.net/npm/xterm@4.17.0/lib/xterm.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-pty@0.9.4/index.js" crossorigin="anonymous"></script>
+
+    <script type="module">
+      import { hydrate, persist, listBuckets } from "./opfs-store.js";
+
+      const $ = (id) => document.getElementById(id);
+      const status = (msg, ok = false) => {
+        $("status").textContent = msg;
+        $("status").classList.toggle("saved", ok);
+      };
+
+      // 1) Pick the bucket UUID: ?uuid=… resumes one, else make a fresh one.
+      const params = new URLSearchParams(location.search);
+      let uuid = params.get("uuid");
+      if (!uuid) {
+        uuid = crypto.randomUUID();
+        localStorage.setItem("c2w:lastUuid", uuid);
+      }
+      $("uuid").textContent = uuid;
+
+      $("new").onclick = () => { location.search = ""; };
+      $("resume").onchange = (e) => {
+        if (e.target.value) location.search = "?uuid=" + encodeURIComponent(e.target.value);
+      };
+      listBuckets().then((ids) => {
+        const sel = $("resume");
+        for (const id of ids) {
+          const o = document.createElement("option");
+          o.value = id;
+          o.textContent = id.slice(0, 8) + (id === uuid ? " (current)" : "");
+          sel.appendChild(o);
+        }
+      });
+
+      // 2) Terminal + pty.
+      const xterm = new Terminal({ fontFamily: "var(--mono)", fontSize: 13, theme: { background: "#11100d" } });
+      xterm.open($("terminal"));
+      const { master, slave } = openpty();
+      let t = slave.ioctl("TCGETS");
+      t.iflag &= ~(ISTRIP | INLCR | IGNCR | ICRNL | IXON);
+      t.oflag &= ~(OPOST);
+      t.lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
+      slave.ioctl("TCSETS", new Termios(t.iflag, t.oflag, t.cflag, t.lflag, t.cc));
+      xterm.loadAddon(master);
+
+      // 3) Hydrate /tmp from OPFS, then start the worker.
+      status("loading /tmp…");
+      const tmpTree = await hydrate(uuid);
+
+      const worker = new Worker("./worker.js");
+      worker.onmessage = async (ev) => {
+        if (ev.data && ev.data.type === "persist") {
+          status("saving /tmp…");
+          try {
+            await persist(ev.data.uuid, ev.data.tree);
+            status("/tmp saved ✓", true);
+          } catch (err) {
+            console.error(err);
+            status("save failed");
+          }
+        }
+      };
+
+      const imagename = location.origin + "/out.wasm";
+      worker.postMessage({ type: "init", imagename, uuid, tmpTree });
+
+      status("starting container…");
+      new TtyServer(slave).start(worker);
+      // Give a beat for the image fetch; xterm shows the kernel boot + shell.
+      setTimeout(() => status("running"), 1500);
+    </script>
+  </body>
+</html>
