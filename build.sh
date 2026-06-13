@@ -21,4 +21,18 @@ fi
 echo "Converting ${IMAGE} -> ${OUT} (this pulls the image and can take a few minutes)…"
 c2w "${IMAGE}" "${OUT}"
 echo "Done. $(du -h "${OUT}" | cut -f1) written to ${OUT}"
+
+# Download c2w-net-proxy.wasm if not already present (needed for ?net=browser).
+PROXY="htdocs/c2w-net-proxy.wasm"
+if [ ! -f "${PROXY}" ]; then
+  echo "Downloading c2w-net-proxy.wasm for browser networking…"
+  C2W_VERSION=$(c2w --version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "0.8.4")
+  PROXY_URL="https://github.com/container2wasm/container2wasm/releases/download/v${C2W_VERSION}/c2w-net-proxy.wasm"
+  curl -fsSL "${PROXY_URL}" -o "${PROXY}" \
+    || { echo "warn: could not download ${PROXY_URL} — browser networking (?net=browser) will not work." >&2; }
+fi
+
 echo "Now run:  npm start   (or: node server.mjs)  and open http://localhost:8080"
+echo "  plain:       http://localhost:8080/"
+echo "  browser net: http://localhost:8080/?net=browser"
+echo "  delegate:    http://localhost:8080/?net=delegate=ws://your-relay:port"
