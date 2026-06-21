@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Run ubuntu:22.04 in the browser via container2wasm, with the container's /tmp backed by a per-session UUID bucket in OPFS.",
   "scripts": {
-    "build": "bash build.sh ubuntu:22.04",
-    "start": "node server.mjs"
+    "start": "node server.mjs",
+    "proxy": "c2w-net --listen-ws localhost:8888"
   }
 }

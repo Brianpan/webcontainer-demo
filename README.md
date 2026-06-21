@@ -14,18 +14,17 @@ emulated CPU all run client-side in WebAssembly.
 ## Layout
 
 ```
-c2w-ubuntu-tmp/
-  build.sh            # c2w ubuntu:22.04 -> htdocs/out.wasm   (needs Docker)
-  server.mjs          # static server with COOP/COEP + wasm MIME (no deps)
-  package.json
-  htdocs/
-    index.html        # terminal UI; picks the UUID, hydrates /tmp, runs the worker
-    opfs-store.js     # main thread: OPFS <-> serializable tree (hydrate / persist)
-    worker.js         # WASI worker: runs out.wasm, mounts /tmp from the bucket
-    wasi-util.js      # vendored poll_oneoff event classes (from the c2w example)
-    browser_wasi_shim/
-      index.js        # vendored bjorn3/browser_wasi_shim bundle (in-memory FS + WASI)
-      wasi_defs.js
+build.sh            # c2w ubuntu:22.04 -> htdocs/out.wasm   (needs Docker)
+server.mjs          # static server with COOP/COEP + wasm MIME (no deps)
+package.json
+htdocs/
+  index.html        # terminal UI; picks the UUID, hydrates /tmp, runs the worker
+  opfs-store.js     # main thread: OPFS <-> serializable tree (hydrate / persist)
+  worker.js         # WASI worker: runs out.wasm, mounts /tmp from the bucket
+  wasi-util.js      # vendored poll_oneoff event classes (from the c2w example)
+  browser_wasi_shim/
+    index.js        # vendored bjorn3/browser_wasi_shim bundle (in-memory FS + WASI)
+    wasi_defs.js
 ```
 
 ## Prerequisites
@@ -42,12 +41,16 @@ Running the result needs only **Node** (for the dev server) and a recent
 ## Build and run
 
 ```bash
-# 1. Convert the image (pulls ubuntu:22.04, takes a few minutes; out.wasm is tens of MB)
-npm run build            # == bash build.sh ubuntu:22.04
+# 1.Build riscv container
+
+c2w --build-arg VM_CORE_NUMS=4 --build-arg VM_MEMORY_SIZE_MB=512 --target-arch=riscv64 debian-riscv ./htdocs/out.wasm
 
 # 2. Serve with the isolation headers and open it
 npm start                # == node server.mjs
 #   -> http://localhost:8080
+
+# start proxy
+c2w-net --listen-ws localhost:8888
 ```
 
 Inside the terminal:
