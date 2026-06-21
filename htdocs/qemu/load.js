@@ -176,7 +176,7 @@ Module['FS_createPath']("/", "pack", true, true);
     }
 
     }
-    loadPackage({"files": [{"filename": "/pack/Image", "start": 0, "end": 4663296}, {"filename": "/pack/efi-virtio.rom", "start": 4663296, "end": 4824064}, {"filename": "/pack/opensbi-riscv64-generic-fw_dynamic.bin", "start": 4824064, "end": 4962432}, {"filename": "/pack/rootfs.bin", "start": 4962432, "end": 190406784}, {"filename": "/pack/vm.state", "start": 190406784, "end": 225410595}], "remote_package_size": 225410595});
+    loadPackage({"files": [{"filename": "/pack/Image", "start": 0, "end": 4985856}, {"filename": "/pack/efi-virtio.rom", "start": 4985856, "end": 5146624}, {"filename": "/pack/opensbi-riscv64-generic-fw_dynamic.bin", "start": 5146624, "end": 5284992}, {"filename": "/pack/rootfs.bin", "start": 5284992, "end": 190729344}, {"filename": "/pack/vm.state", "start": 190729344, "end": 228510051}], "remote_package_size": 228510051});
 
   })();
 
