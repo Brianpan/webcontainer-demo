@@ -51,6 +51,8 @@ npm start                # == node server.mjs
 
 # start proxy
 c2w-net --listen-ws localhost:8888
+
+# http://localhost:8080/?net=delegate=ws://localhost:8888
 ```
 
 Inside the terminal:
@@ -132,3 +134,8 @@ Cross-Origin-Embedder-Policy: require-corp
 
 without those, `SharedArrayBuffer` is unavailable and the terminal's stdin
 won't work.
+
+## Run Codex
+```bash
+codex exec --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check
+```

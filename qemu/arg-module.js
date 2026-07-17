@@ -1,7 +1,6 @@
 Module['arguments'] =
 [
     "-incoming", "file:/pack/vm.state",
-    "-cpu", "max",
     "-nographic", "-m", "1024M", "-accel", "tcg,tb-size=500,thread=multi", "-smp", "4,sockets=4",
     "-L", "/pack/",
     "-drive", "if=virtio,format=raw,file=/pack/rootfs.bin",

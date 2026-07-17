@@ -11,7 +11,7 @@ import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 
-const ROOT = join(process.cwd(), "htdocs");
+const ROOT = process.cwd();
 const PORT = process.env.PORT || 8080;
 
 const MIME = {

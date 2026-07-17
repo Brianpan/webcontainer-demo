@@ -2,63 +2,245 @@
   <head>
     <title>container on browser</title>
     <link rel="stylesheet" href="./vendor/xterm.css" />
+    <style>
+      /* ---- Cyberpunk theme ---- */
+      :root {
+        --bg: #05060a;
+        --bg-2: #0a0f1e;
+        --neon-cyan: #00f0ff;
+        --neon-magenta: #ff2fb4;
+        --neon-violet: #8a5cff;
+        --grid: rgba(0, 240, 255, 0.06);
+        --text: #c8f7ff;
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+      }
+      body {
+        /* faint neon grid backdrop */
+        background-image:
+          linear-gradient(var(--grid) 1px, transparent 1px),
+          linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+        background-size: 32px 32px;
+      }
+      #terminal {
+        margin: 24px auto;
+        max-width: 1100px;
+        padding: 12px;
+        border: 1px solid var(--neon-cyan);
+        border-radius: 8px;
+        box-shadow:
+          0 0 12px rgba(0, 240, 255, 0.35),
+          inset 0 0 24px rgba(0, 240, 255, 0.08);
+        background: rgba(5, 6, 10, 0.85);
+      }
+
+      /* ---- Startup network modal ---- */
+      #net-modal {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(1200px 600px at 50% 30%, rgba(138, 92, 255, 0.12), rgba(5, 6, 10, 0.92));
+        backdrop-filter: blur(3px);
+        z-index: 10;
+      }
+      #net-modal[hidden] { display: none; }
+      .net-card {
+        width: min(92vw, 460px);
+        padding: 28px 26px 22px;
+        background: linear-gradient(160deg, var(--bg-2), #060812);
+        border: 1px solid var(--neon-magenta);
+        border-radius: 10px;
+        box-shadow:
+          0 0 18px rgba(255, 47, 180, 0.35),
+          0 0 60px rgba(138, 92, 255, 0.25),
+          inset 0 0 30px rgba(255, 47, 180, 0.06);
+      }
+      .net-title {
+        margin: 0 0 6px;
+        font-size: 20px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: var(--neon-cyan);
+        text-shadow: 0 0 8px rgba(0, 240, 255, 0.7);
+      }
+      .net-sub {
+        margin: 0 0 18px;
+        font-size: 12px;
+        line-height: 1.5;
+        color: #8ea7c4;
+      }
+      .net-label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 11px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: var(--neon-violet);
+      }
+      #net-url {
+        width: 100%;
+        padding: 12px 14px;
+        font-family: inherit;
+        font-size: 14px;
+        color: var(--text);
+        background: #04060d;
+        border: 1px solid var(--neon-cyan);
+        border-radius: 6px;
+        outline: none;
+        box-shadow: inset 0 0 12px rgba(0, 240, 255, 0.15);
+      }
+      #net-url:focus {
+        border-color: var(--neon-magenta);
+        box-shadow: inset 0 0 12px rgba(255, 47, 180, 0.25), 0 0 10px rgba(255, 47, 180, 0.4);
+      }
+      #net-url::placeholder { color: #3f5f7a; }
+      .net-hint {
+        margin: 10px 0 18px;
+        font-size: 11px;
+        color: #6f8296;
+      }
+      .net-actions { display: flex; gap: 12px; }
+      .net-btn {
+        flex: 1;
+        padding: 12px 14px;
+        font-family: inherit;
+        font-size: 13px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        cursor: pointer;
+        border-radius: 6px;
+        background: transparent;
+        transition: box-shadow 0.15s, color 0.15s, background 0.15s;
+      }
+      .net-btn.primary {
+        color: #04060d;
+        background: var(--neon-cyan);
+        border: 1px solid var(--neon-cyan);
+        box-shadow: 0 0 14px rgba(0, 240, 255, 0.5);
+      }
+      .net-btn.primary:hover { box-shadow: 0 0 22px rgba(0, 240, 255, 0.9); }
+      .net-btn.ghost {
+        color: var(--neon-magenta);
+        border: 1px solid var(--neon-magenta);
+      }
+      .net-btn.ghost:hover {
+        color: #04060d;
+        background: var(--neon-magenta);
+        box-shadow: 0 0 18px rgba(255, 47, 180, 0.6);
+      }
+    </style>
   </head>
   <body>
+    <!-- Phase 1: ask the user for the delegate proxy before anything boots. -->
+    <div id="net-modal">
+      <div class="net-card">
+        <h1 class="net-title">// Net Uplink</h1>
+        <p class="net-sub">
+          Point the container at a delegate network proxy. Leave the field
+          empty to boot the machine air-gapped (no network).
+        </p>
+        <label class="net-label" for="net-url">delegate proxy</label>
+        <input id="net-url" type="text" placeholder="ws://localhost:8888"
+               autocomplete="off" spellcheck="false" autofocus />
+        <p class="net-hint">Example: ws://localhost:8888 &nbsp;·&nbsp; empty = network disabled</p>
+        <div class="net-actions">
+          <button id="net-offline" class="net-btn ghost" type="button">No network</button>
+          <button id="net-connect" class="net-btn primary" type="button">Connect &amp; boot</button>
+        </div>
+      </div>
+    </div>
+
     <div id="terminal"></div>
+
     <script src="./load.js"></script>
-    <script src="./dist/stack.js"></script>
     <script type="module">
       import 'https://unpkg.com/xterm@5.3.0/lib/xterm.js';
       import 'https://unpkg.com/xterm-pty/index.js';
       import './arg-module.js'
       import initEmscriptenModule from './out.js';
 
-      const xterm = new Terminal();
-      xterm.open(document.getElementById("terminal"));
+      // ---- Phase 1: network modal ----------------------------------------
+      // The page asks for a delegate proxy WebSocket URL first. Only after the
+      // user answers do we build the terminal and boot the wasm (Phase 2).
+      const modal = document.getElementById('net-modal');
+      const input = document.getElementById('net-url');
 
-      const { master, slave } = openpty();
+      document.getElementById('net-connect').addEventListener('click', () => submit(input.value));
+      document.getElementById('net-offline').addEventListener('click', () => submit(''));
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') submit(input.value);
+      });
+      input.focus();
 
-      xterm.loadAddon(master);
-
-      Module.pty = slave;
-
-      Module['mainScriptUrlOrBlob'] = location.origin + "/out.js";
-
-      let info = "t:" + Math.round(new Date() / 1000) + "\n";
-      
-      var netParam = getNetParam();
-      if (!netParam) {
-          start(info);
-      } else {
-          if (netParam.mode == 'delegate') {
-              Module['websocket'] = {
-                  'url': netParam.param
-              };
-              info += 'n:' + genmac() + '\n';
-              start(info);
-          } else if (netParam.mode == 'browser') {
-              const stackAddress = 'http://localhost:9999/'; // listened and served by a mock inside browser
-              const stackWorkerFile = location.origin + "/dist/stack-worker.js";
-              const stackImage = location.origin + "/c2w-net-proxy.wasm.gzip";
-              Module['websocket'] = {
-                  'url': stackAddress
-              };
-              Stack.Start(stackAddress, stackWorkerFile, stackImage, (cert) => {
-                  Module['preRun'].push((mod) => {
-                      mod.FS.mkdir('/.wasmenv');
-                      mod.FS.writeFile('/.wasmenv/proxy.crt', cert);
-                  });
-                  info += 'n:' + genmac() + '\n';
-                  info += `m: .wasmenv
-env: SSL_CERT_FILE=/.wasmenv/proxy.crt
-env: https_proxy=http://192.168.127.253:80
-env: http_proxy=http://192.168.127.253:80
-env: HTTPS_PROXY=http://192.168.127.253:80
-env: HTTP_PROXY=http://192.168.127.253:80`;
-                  start(info);
-              });
-          }
+      let booted = false;
+      function submit(raw) {
+        if (booted) return;
+        booted = true;
+        modal.hidden = true;
+        bootWithNet(normalizeUrl(raw));
       }
+
+      // Accept "ws://host:port", "wss://host:port", or a bare "host:port"
+      // (SOCKFS requires a ws(s):// scheme, so we add one). Empty stays empty.
+      function normalizeUrl(raw) {
+        const v = (raw || '').trim();
+        if (!v) return '';
+        if (/^wss?:\/\//i.test(v)) return v;
+        return 'ws://' + v;
+      }
+
+      // ---- Phase 2: build terminal + boot wasm ---------------------------
+      function bootWithNet(netUrl) {
+        const xterm = new Terminal();
+        xterm.open(document.getElementById("terminal"));
+
+        const { master, slave } = openpty();
+        xterm.loadAddon(master);
+
+        Module.pty = slave;
+        Module['mainScriptUrlOrBlob'] = location.origin + "/out.js";
+
+        let info = "t:" + Math.round(new Date() / 1000) + "\n";
+
+        if (netUrl) {
+          // Delegate mode: bridge the guest NIC socket to the proxy over WS.
+          Module['websocket'] = { 'url': netUrl };
+          info += 'n:' + genmac() + '\n';
+        } else {
+          // No network: drop the virtio NIC so the guest never dials the
+          // (unset) proxy. arg-module.js wires the NIC unconditionally, and
+          // SOCKFS would otherwise fall back to ws://127.0.0.1:8888.
+          disableGuestNetwork();
+        }
+
+        start(info);
+      }
+
+      // Remove the "-netdev socket,... -device virtio-net-pci,..." pair that
+      // arg-module.js appends, so an air-gapped boot has no NIC at all.
+      // Defensive: only splice when the exact "-netdev <val> -device <val>"
+      // shape is present, so a future arg-module.js reorder can't corrupt the
+      // command line. If it can't be found, warn loudly rather than boot with a
+      // live NIC that would dial a dead ws://127.0.0.1:8888 (Grill1 F1).
+      function disableGuestNetwork() {
+        const args = Module['arguments'];
+        if (!Array.isArray(args)) return;
+        const i = args.indexOf('-netdev');
+        if (i !== -1 && args[i + 2] === '-device') {
+          args.splice(i, 4); // -netdev <val> -device <val>
+        } else {
+          console.warn('[net] could not strip NIC args; air-gapped boot may still dial the proxy', args);
+        }
+      }
+
       function start(info) {
           Module['preRun'].push((mod) => {
               try { FS.mkdir('/pack'); } catch (e) {}
@@ -87,19 +269,6 @@ env: HTTP_PROXY=http://192.168.127.253:80`;
           (async () => {
               const instance = await initEmscriptenModule(Module);
           })();
-      }
-      function getNetParam() {
-          var vars = location.search.substring(1).split('&');
-          for (var i = 0; i < vars.length; i++) {
-              var kv = vars[i].split('=');
-              if (decodeURIComponent(kv[0]) == 'net') {
-                  return {
-                      mode: kv[1],
-                      param: kv[2],
-                  };
-              }
-          }
-          return null;
       }
       function genmac(){
           return "02:XX:XX:XX:XX:XX".replace(/X/g, function() {
